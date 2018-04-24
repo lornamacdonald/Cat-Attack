@@ -1,0 +1,518 @@
+<html>
+	<head>
+		<title>Cat Attack</title>
+		<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.0/css/bootstrap.min.css" integrity="sha384-9gVQ4dYFwwWSjIDZnLEWnxCjeSWFphJiwGPXr1jddIhOegiu1FwO5qRGvFXOdJZ4" crossorigin="anonymous">
+		<script src = "http://cdn.socket.io/socket.io-1.4.5.js"></script>
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.0/jquery.min.js"></script>
+	</head>
+	
+	<body style="background-color:#f2a7b8; margin-top:10px; margin-bottom:10px; margin-left:50px; margin-right:50px">
+		<div class="container">
+			<div id="homeDiv">
+				<h1 class="display-2" style="text-align:center">Welcome to Cat Attack!</h1>
+				<br>
+				<h4 style="text-align:center; padding-bottom:30px">Shoot at cats to proceed through the levels. Collect fishies for bonus points.</h4>
+				
+				<input name="username" id="username" type="text" placeholder="Username" style="margin-top:10px; margin-bottom:10px; border-radius:10px; width:1100" class="form-control">
+				<input name="password" id="password" type="password" placeholder="Password" style="margin-top:10px; margin-bottom:10px; border-radius:10px; width:1100" class="form-control">
+				<div class="invalid-feedback" id="errorEmpty" style="display:none">Please enter your username and password.</div>
+				<div class="invalid-feedback" id="errorTaken" style="display:none">That username is taken.</div>
+				<div class="invalid-feedback" id="errorEmptySignUp" style="display:none">Please enter a username and password.</div>
+				<button style="align:center; display:inline-block; margin-left:auto; margin-right:auto; margin-top:10px; background-color:#ef73b5; color:white; width:80px"
+					id="signIn" class="btn">Sign In</button>
+				<button style="align:center; display:inline-block; margin-left:auto; margin-right:auto; margin-top:10px; background-color:#ef73b5; color:white; width:80px"
+					id="signUp" class="btn">Sign Up</button>
+				<img src='/client/img/player.png' style="display:block; margin-left:auto; margin-right:auto; width:auto; height:150px; margin-top:20px">
+			</div>
+		</div>
+			
+		<div id="gameDiv" style="display:none" >
+			<h1 style="text-align:center" class="display-4">Welcome to Cat Attack!</h1>
+			<p class="h6" style="text-align:center">Close the web page to log out.</p>
+			
+			<form id="chat" style="text-align:center">
+				<input style="border-radius:10px" id="chat-input" type="text" style="width:100%" placeholder="Type your message here!"class="form-control"></input>
+			</form>
+			
+			<canvas id="ctx" width="1000" height="500" style="border-radius:10px; margin:0 auto; display:inline-block"></canvas>
+
+			<div style="display:inline-block">
+				<textarea class="form-control" style = "width:400; height:500px; border-radius:10px" id = "chat-text"></textarea>
+			</div>
+		</div>
+		
+		<div id="rulesLeaderboardDiv" style="display:none">
+			<h1 class="display-4">How to Play</h1>
+			<p class="h6">You will be in the game with any number of users (chat to them using the chat box).</p>
+			<p class="h6">The aim of the game is to kill as many other cats as you can. Each kill gets you +1 on your overall score and +1 on your kill list.</p>
+			<p class="h6">Fish will randomly appear, catch them! They will get you +1 on your overall score. But beware of getting killed, your fish score will drop -1.</p>
+			<p class="h6">To proceed to the next level, simply get 5 kills.</p>
+			<p class="h6">Moving to level 2 gets you +20 points, and moving to level 3 gets you +50 points.</p>
+			<p class="h6">Try get to the top of the leaderboard!</p>
+			
+			<h1 class="display-4">Leaderboard</h1>
+			<table class="table" id="leaderboard-table">
+				<thead>
+					<tr>
+						<th scope="col">Rank</th>
+						<th scope="col">Username</th>
+						<th scope="col">Score</th>
+					</tr>
+				</thead>
+				<tbody id="tbody"></tbody>
+			</table>
+		</div>
+	</body>
+</html>
+
+<script>
+
+// Home variables
+var homeDiv = document.getElementById('homeDiv');
+var gameDiv = document.getElementById('gameDiv');
+var rulesLeaderboardDiv = document.getElementById('rulesLeaderboardDiv');
+var username = document.getElementById('username');
+var password = document.getElementById('password');
+var signIn = document.getElementById('signIn');
+var signUp = document.getElementById('signUp');
+var errorEmpty = document.getElementById('errorEmpty');
+var errorTaken = document.getElementById('errorTaken');
+var errorEmptySignUp = document.getElementById('errorEmptySignUp');
+
+// Socket
+var socket = io();
+
+// Click on the Sign In button
+signIn.onclick = function() {
+	// Run the 'signIn' socket, passing in a username and password
+	socket.emit('signIn',{username:username.value,password:password.value});
+}
+	
+// Click on the Sign Up button	
+signUp.onclick = function() {
+	// Run the 'signUp' socket, passing in a username and password
+	socket.emit('signUp',{username:username.value,password:password.value});
+}
+
+// Sign in response
+socket.on('signInResponse', function(data) {
+	// If the user hasn't entered a username or password
+	if (username.value === "" || password.value === "") {
+		// Display the corresponding error
+		errorEmpty.style.display = 'inline-block';
+		errorEmptySignUp.style.display = 'none';
+		errorTaken.style.display = 'none';
+	}
+	else {
+		// If the username exists and the password matches
+		if (data.success) {
+			// Load the game
+			gameDiv.style.display = 'inline-block';
+			rulesLeaderboardDiv.style.display = 'inline-block';
+			homeDiv.style.display = 'none';
+		} else {
+			// Display the corresponding error
+			errorEmpty.style.display = 'inline-block';
+			errorEmptySignUp.style.display = 'none';
+			errorTaken.style.display = 'none';
+		}
+	}
+});
+	
+// Sign up response
+socket.on('signUpResponse', function(data) {
+	// If the user hasn't entered a username or password
+	if (username.value === "" || password.value === "") {
+		// Display the corresponding error
+		errorEmptySignUp.style.display = 'inline-block';
+		errorEmpty.style.display = 'none';
+		errorTaken.style.display = 'none';
+	}
+	else {
+		// If the username doesn't exist
+		if (data.success) {
+			// Create the account
+			alert("Account created.");
+			// Run the 'signIn' socket, passing in a username and password
+			socket.emit('signIn', {username:username.value,password:password.value});
+		}
+		else {
+			// Display the corresponding error
+			errorTaken.style.display = 'inline-block';
+			errorEmpty.style.display = 'none';
+			errorEmptySignUp.style.display = 'none';
+		}
+	}
+});
+
+// Chat variables
+var chatText = document.getElementById('chat-text');
+var chatInput = document.getElementById('chat-input');
+var chat = document.getElementById('chat');
+
+// Submit a message
+chat.onsubmit = function(e){
+	e.preventDefault();
+	socket.emit('sendMsgToServer',chatInput.value);
+	chatInput.value = '';
+}
+	
+// Add the message to the chat box
+socket.on('addToChat', function(data) {
+	chatText.innerHTML += data + "\n";
+});
+
+// Get the score data from the database
+var tbody = document.getElementById("tbody");
+var ourRequest = new XMLHttpRequest();
+ourRequest.open('GET', 'http://localhost:2000/api/users');
+ourRequest.onload = function() {
+    if (ourRequest.status >= 200 && ourRequest.status < 400) {
+		var ourData = JSON.parse(ourRequest.responseText);
+		
+		// Sort the scores
+		function sortScores(a, b) {
+			return b.score - a.score;
+		}
+		ourData.sort(sortScores);
+		renderHTML(ourData);
+    }
+	else {
+		console.log("We connected to the server, but it returned an error.");
+    }
+};
+
+ourRequest.onerror = function() {
+	console.log("Connection error");
+};
+
+ourRequest.send();
+  
+// Fill the leaderboard table
+function renderHTML(data) {
+	var htmlString = "";
+
+	for (i = 0; i < data.length; i++) {
+		htmlString += "<tr><th scope=\"row\">" + [i + 1] + "</th><td>" + data[i].username + "</td><td>" + data[i].score + "</td></tr>";
+	}
+	
+	tbody.insertAdjacentHTML('beforeend', htmlString);
+}
+
+// Create the images for the canvas
+var Img = {};
+Img.player = new Image();
+Img.player.src = '/client/img/player.png';
+Img.bullet = new Image();
+Img.bullet.src = '/client/img/bullet.png';
+Img.fish1 = new Image();
+Img.fish1.src = '/client/img/fish.png';
+Img.map = new Image();
+Img.map['1'] = new Image();
+Img.map['1'].src = '/client/img/1.png';
+Img.map['2'] = new Image();
+Img.map['2'].src = '/client/img/2.png';
+Img.map['3'] = new Image();
+Img.map['3'].src = '/client/img/3.png';
+Img.map['win'] = new Image();
+Img.map['win'].src = '/client/img/win.png';
+	
+// Canvas width and height
+var WIDTH = 1000;
+var HEIGHT = 500;
+	
+// Create the canvas
+var ctx = document.getElementById("ctx").getContext("2d");
+ctx.font = '20px Arial';
+
+// Player
+var Player = function(initPack) {
+	var self = {};
+	self.id = initPack.id;
+	self.number = initPack.number;
+	self.x = initPack.x;
+	self.y = initPack.y;
+	self.healthBar = initPack.healthBar;
+	self.healthBarMax = initPack.healthBarMax;
+	self.score = initPack.score;
+	self.kills = initPack.kills;
+	self.map = initPack.map;
+
+	self.draw = function() {
+		if (Player.list[selfId].map !== self.map) {
+			return;
+		} 
+
+		var healthBarWidth = 30 * self.healthBar / self.healthBarMax;
+		ctx.fillStyle = '#ef73b5';
+		ctx.fillRect(self.x - healthBarWidth/2 ,self.y - 40, healthBarWidth, 4);
+		ctx.fillStyle = '#000000';
+
+		var width = Img.player.width/5;
+		var height = Img.player.height/5;
+
+		ctx.drawImage(Img.player,0,0,Img.player.width,Img.player.height,self.x-width/2,self.y-height/2,width,height);
+	}
+	Player.list[self.id] = self;
+	return self;
+}
+Player.list = {};
+		
+// Bullet
+var Bullet = function(initPack) {
+	var self = {};
+	self.id = initPack.id;
+	self.x = initPack.x;
+	self.y = initPack.y;
+	self.map = initPack.map;
+
+	self.draw = function() {		
+		if (Player.list[selfId].map !== self.map) {
+			return;
+		}
+
+		var width = Img.bullet.width/5;
+		var height = Img.bullet.height/5;
+
+		var x = self.x - Player.list[selfId].x + WIDTH/2;
+		var y = self.y - Player.list[selfId].y + HEIGHT/2;
+
+		ctx.drawImage(Img.bullet,0,0,Img.bullet.width,Img.bullet.height,self.x-width/2,self.y-height/2,width,height);
+	}
+	Bullet.list[self.id] = self;		
+	return self;
+}
+Bullet.list = {};
+	
+// Fish
+var Fish = function(initPack) {
+	var self = {};
+	self.id = initPack.id;
+	self.x = initPack.x;
+	self.y = initPack.y;
+	self.map = initPack.map;
+
+	self.draw = function() {		
+		if (Fish.list[selfId].map !== self.map) {
+			return;
+		}
+
+		var width = Img.fish1.width/2;
+		var height = Img.fish1.height/2;
+
+		var x = self.x - Fish.list[selfId].x + WIDTH/2;
+		var y = self.y - Fish.list[selfId].y + HEIGHT/2;
+
+		ctx.drawImage(Img.fish1,0,0,Img.fish1.width,Img.fish1.height,self.x-width/2,self.y-height/2,width,height);
+	}
+	Fish.list[self.id] = self;		
+	return self;
+}
+Fish.list = {};
+
+// Level 2 socket
+var level2 = function() {
+	socket.emit('level2');
+}
+
+// Level 3 socket
+var level3 = function() {
+	socket.emit('level3');
+}
+
+// Win socket
+var win = function() {
+	socket.emit('win');
+}
+	
+// Set selfId initially to null
+var selfId = null;
+
+// Initialise
+socket.on('init',function(data) {	
+	if (data.selfId) {
+		selfId = data.selfId;
+	}
+	
+	for (var i = 0 ; i < data.player.length; i++) {
+		new Player(data.player[i]);
+	}
+	
+	for (var i = 0 ; i < data.bullet.length; i++) {
+		new Bullet(data.bullet[i]);
+	}
+	
+	for (var i = 0 ; i < data.fish.length; i++) {
+		new Fish(data.fish[i]);
+	}
+});
+
+// Update
+socket.on('update',function(data) {
+	for (var i = 0 ; i < data.player.length; i++) {
+		var pack = data.player[i];
+		var p = Player.list[pack.id];
+		if(p) {
+			if (pack.x !== undefined)
+				p.x = pack.x;
+			if (pack.y !== undefined)
+				p.y = pack.y;
+			if (pack.healthBar !== undefined)
+				p.healthBar = pack.healthBar;
+			if (pack.score !== undefined)
+				p.score = pack.score;
+			if (pack.kills !== undefined)
+				p.kills = pack.kills;
+			if (pack.map !== undefined)
+				p.map = pack.map;
+		}
+	}
+	
+	for (var i = 0 ; i < data.bullet.length; i++) {
+		var pack = data.bullet[i];
+		var b = Bullet.list[data.bullet[i].id];
+		if(b) {
+			if (pack.x !== undefined)
+				b.x = pack.x;
+			if (pack.y !== undefined)
+				b.y = pack.y;
+		}
+	}
+	
+	for (var i = 0 ; i < data.fish.length; i++) {
+		var pack = data.fish[i];
+		var b = Fish.list[data.fish[i].id];
+		if(b) {
+			if (pack.x !== undefined)
+				b.x = pack.x;
+			if (pack.y !== undefined)
+				b.y = pack.y;
+		}
+	}
+});
+
+// Remove
+socket.on('remove',function(data){
+	for (var i = 0 ; i < data.player.length; i++) {
+		delete Player.list[data.player[i]];
+	}
+	
+	for (var i = 0 ; i < data.bullet.length; i++) {
+		delete Bullet.list[data.bullet[i]];
+	}
+	
+	for (var i = 0 ; i < data.fish.length; i++) {
+		delete Fish.list[data.fish[i]];
+	}
+});
+
+// Draw the map
+var drawMap = function() {
+	var player = Player.list[selfId];
+	ctx.drawImage(Img.map[player.map], 0, 0);
+}
+
+// Draw the score, level and "me" above your player
+var drawFeatures = function() {
+	ctx.fillStyle = 'white';
+	// Score
+	ctx.fillText("Overall score: " + Player.list[selfId].score + " Kills: " + Player.list[selfId].kills, 15, 30);
+	// "Me" above player
+	var healthBarWidth = 30 * Player.list[selfId].healthBar / Player.list[selfId].healthBarMax;
+	ctx.fillText("Me", Player.list[selfId].x - healthBarWidth/2, Player.list[selfId].y - 50);
+	// Level
+	ctx.fillText("Level: " + Player.list[selfId].map, 920, 30);
+}
+
+// 4x per second...
+setInterval(function() {
+	if (!selfId) {
+		return;
+	}
+	
+	// Clear the canvas
+	ctx.clearRect(0,0,1000,500);
+
+	// Draw the map and features
+	drawMap();
+	drawFeatures();
+
+	for (var i in Player.list) {
+		// Draw the players
+		Player.list[i].draw();
+
+		// Update the player's score
+		socket.emit('saveScore',{username:username.value,score:Player.list[selfId].score});
+
+		// Move the player to level 2
+		if (Player.list[selfId].kills === 5) {
+			level2();
+		}
+
+		// Move the player to level 3
+		if (Player.list[selfId].kills === 10) {
+			level3();
+		}
+		
+		// The player wins
+		if (Player.list[selfId].kills === 15) {
+			// Draw the winning screen
+			win();
+			// Clear the canvas
+			//ctx.clearRect(0,0,1000,500);
+			// Delete the player
+			Player.list[selfId].delete();
+		}
+	}
+
+	// Draw the bullets
+	for (var i in Bullet.list) {
+		Bullet.list[i].draw();
+	}
+
+	// Draw the fish
+	for (var i in Fish.list) {
+		Fish.list[i].draw();
+	}
+	
+}, 40);
+	
+// Key movements
+document.onkeydown = function(event) {
+	if(event.keyCode === 68)
+		socket.emit('keyPress', {inputId:'right', state:true});
+	else if(event.keyCode === 83)
+		socket.emit('keyPress', {inputId:'down', state:true});
+	else if(event.keyCode === 65)
+		socket.emit('keyPress', {inputId:'left', state:true});
+	else if(event.keyCode === 87)
+		socket.emit('keyPress', {inputId:'up', state:true});	
+}
+
+document.onkeyup = function(event) {
+	if (event.keyCode === 68)
+		socket.emit('keyPress', {inputId:'right', state:false});
+	else if (event.keyCode === 83)
+		socket.emit('keyPress', {inputId:'down', state:false});
+	else if (event.keyCode === 65)
+		socket.emit('keyPress', {inputId:'left', state:false});
+	else if (event.keyCode === 87)
+		socket.emit('keyPress', {inputId:'up', state:false});
+}
+
+// Mouse movements
+document.onmousedown = function(event) {
+	socket.emit('keyPress', {inputId:'attack', state:true});
+}
+
+document.onmouseup = function(event) {
+	socket.emit('keyPress', {inputId:'attack', state:false});
+}
+
+document.onmousemove = function(event) {
+	var x = -250 + event.clientX - 8;
+	var y = -250 + event.clientY - 8;
+	var angle = Math.atan2(y, x) / Math.PI * 180;
+	socket.emit('keyPress', {inputId:'mouseAngle', state:angle});
+}	
+</script>
